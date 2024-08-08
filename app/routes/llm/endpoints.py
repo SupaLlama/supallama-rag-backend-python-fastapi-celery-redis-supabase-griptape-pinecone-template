@@ -1,8 +1,11 @@
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_pinecone import PineconeVectorStore
+from griptape.drivers import OpenAiChatPromptDriver, OpenAiEmbeddingDriver, PineconeVectorStoreDriver
+from griptape.engines.rag import RagEngine
+from griptape.engines.rag.modules import PromptResponseRagModule, VectorStoreRetrievalRagModule
+from griptape.engines.rag.stages import RetrievalRagStage, ResponseRagStage
+from griptape.rules import Ruleset, Rule
+from griptape.structures import Agent
+from griptape.tools import RagClient
+
 
 from app.config import settings
 from . import llm_router
@@ -16,36 +19,60 @@ def query_pinecone_index(reqest_body: QueryPineconeIndexBody):
 
     question = reqest_body.question
 
-    llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
+    namespace = "web-content"
 
-    embeddings = OpenAIEmbeddings()
+    vector_store_driver = PineconeVectorStoreDriver(
+        api_key=settings.PINECONE_API_KEY,
+        environment="",
+        index_name=settings.PINECONE_INDEX_NAME,
+        embedding_driver=OpenAiEmbeddingDriver(),
+    )    
 
-    pinecone_index_name = settings.PINECONE_INDEX_NAME
-
-    vectorstore = PineconeVectorStore.from_existing_index(
-        index_name=pinecone_index_name, embedding=embeddings
+    engine = RagEngine(
+        retrieval_stage=RetrievalRagStage(
+            retrieval_modules=[
+                VectorStoreRetrievalRagModule(
+                    vector_store_driver=vector_store_driver,
+                    query_params= {
+                        "namespace": namespace,
+                        "top_n": 20,
+                    }
+                )
+            ]
+        ),
+        response_stage=ResponseRagStage(
+            response_module=PromptResponseRagModule(
+                prompt_driver=OpenAiChatPromptDriver(model="gpt-4o-2024-08-06")
+            )
+        )
+    )
+    
+    vector_store_tool = RagClient(
+        description="Contains contextual information pertaining to the user's questions. "
+                    "Use it to answer any questions from the user if possible. ",
+        rag_engine=engine
+    )
+    
+    agent = Agent(
+        rulesets=[
+            Ruleset(
+                name="Assistant",
+                rules=[
+                    Rule(
+                        "Always introduce yourself as a question-answering chatbot."
+                    ),
+                    Rule(
+                        "Be truthful. Only discuss information related to the user's questions."
+                    ),
+                    Rule(
+                        "Use at most three sentences and keep the answer as concise as possible."
+                    ),
+                ]
+            )
+        ],
+        tools=[vector_store_tool]
     )
 
-    retriever = vectorstore.as_retriever()
+    agent.run(question)
 
-    template = """You are an assistant for question-answering tasks. 
-        Use the following pieces of retrieved context to answer the question. 
-        If you don't know the answer, just say that you don't know. 
-        Use three sentences maximum and keep the answer concise.
-    Question: {question}
-    Context: {context}
-    Answer:
-    """
-    prompt = ChatPromptTemplate.from_template(template)
-    print(f"The prompt template is:\n{prompt}")
-
-    rag_chain = (
-        {"context": retriever, "question": RunnablePassthrough()}
-        | prompt
-        | llm
-        | StrOutputParser()
-    )
-
-    answer = rag_chain.invoke(question)
-
-    return {"answer": answer}
+    return {"answer": agent.output.value}

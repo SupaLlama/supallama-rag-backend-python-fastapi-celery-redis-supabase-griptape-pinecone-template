@@ -10,7 +10,7 @@ class BaseConfig:
     CELERY_BROKER_URL: str = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
     CELERY_RESULT_BACKEND: str = os.environ.get("CELERY_RESULT_URL", "redis://redis:6379/0")
 
-    FIRECRAWL_API_KEY: str = os.environ.get("FIRECRAWL_API_KEY", "")
+    PINECONE_API_KEY: str = os.environ.get("PINECONE_API_KEY", "")
 
     PINECONE_INDEX_NAME: str = os.environ.get("PINECONE_INDEX_NAME", "")
 

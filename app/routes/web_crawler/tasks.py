@@ -1,9 +1,7 @@
 from celery import shared_task
 
-from langchain_community.document_loaders import FireCrawlLoader
-from langchain_openai import OpenAIEmbeddings
-from langchain_pinecone import PineconeVectorStore
-from langchain_text_splitters import MarkdownTextSplitter
+from griptape.drivers import OpenAiEmbeddingDriver, PineconeVectorStoreDriver
+from griptape.loaders import WebLoader
 
 from app.config import settings
 
@@ -21,27 +19,24 @@ def crawl_url_and_index_task(url: str) -> str:
     # rdb.set_trace()
 
     print("******** crawl_url_and_index_task ********")
-    print(f"firecrawl api key: {settings.FIRECRAWL_API_KEY}")
+    # print(f"firecrawl api key: {settings.FIRECRAWL_API_KEY}")
     print(f"pinecone index name: {settings.PINECONE_INDEX_NAME}")
 
-    print(f"Crawling URL to index: {url}")
-    loader = FireCrawlLoader(
-        api_key=settings.FIRECRAWL_API_KEY,
-        mode="scrape",
-        url=url
+    print(f"Scraping Web Content from: {url}")
+    artifacts = WebLoader().load(url)
+
+    print("Embedding Text Artifacts and Adding to Pinecone Index")
+    vector_store_driver = PineconeVectorStoreDriver(
+        api_key=settings.PINECONE_API_KEY,
+        environment="",
+        index_name=settings.PINECONE_INDEX_NAME,
+        embedding_driver=OpenAiEmbeddingDriver(),
+    )    
+
+    namespace = "web-content"
+
+    vector_store_driver.upsert_text_artifacts(
+        {namespace: artifacts}
     )
-    docs = loader.load()
-
-    print("Splitting markdown text")
-    text_splitter = MarkdownTextSplitter(chunk_size=1000, chunk_overlap=20)
-    split_docs = text_splitter.split_documents(docs)
-
-    print("Embedding Split Documents and Adding to Pinecone Index")
-    embeddings = OpenAIEmbeddings()
-    PineconeVectorStore.from_documents(
-        split_docs,
-        embedding=embeddings,
-        index_name=settings.PINECONE_INDEX_NAME
-    ) 
 
     return f"Successfully Crawled & Indexed URL: {url}"
