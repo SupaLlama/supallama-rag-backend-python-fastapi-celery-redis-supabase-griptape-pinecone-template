@@ -1,0 +1,44 @@
+services:
+  # Background worker queue
+  redis:
+    image: redis:7-alpine
+
+  web:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: supallama-rag-backend-fastapi
+    # Run shell script to start FastAPI server inside 
+    # the container
+    command: /start-fastapi.sh
+    # This volume is used to map the files and folders 
+    # on the host to the docker container. 
+    # This way, if we change code on the host, the code 
+    # in the docker container will also be changed. 
+    volumes:
+      - .:/app
+    ports:
+      - 8000:8000
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: supallama-rag-backend-celery-worker
+    # Run shell script to start the Celery background 
+    # worker inside the container
+    command: /start-celery-worker.sh
+    # This volume is used to map the files and folders 
+    # on the host to the docker container. 
+    # This way, if we change code on the host, the code 
+    # in the docker container will also be changed. 
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
