@@ -11,8 +11,11 @@ class BaseConfig:
     CELERY_RESULT_BACKEND: str = os.environ.get("CELERY_RESULT_URL", "redis://redis:6379/0")
 
     PINECONE_API_KEY: str = os.environ.get("PINECONE_API_KEY", "")
-
     PINECONE_INDEX_NAME: str = os.environ.get("PINECONE_INDEX_NAME", "")
+
+    SUPABASE_JWT_SECRET: str = os.environ.get("SUPABASE_JWT_SECRET", "")
+    SUPABASE_URL: str = os.environ.get("SUPABASE_URL", "")
+    SUPABASE_SERVICE_ROLE_KEY: str = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
 
 class DevelopmentConfig(BaseConfig):
