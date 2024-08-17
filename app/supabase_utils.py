@@ -1,5 +1,6 @@
+from enum import Enum
 import logging
-from typing import List, Union
+from typing import Dict, List, Union
 
 from postgrest.exceptions import APIError
 
@@ -13,6 +14,15 @@ from app.config import settings
 # Logging Config
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("supabase-utils") 
+
+
+# Statuses for crawled_urls Supabase table
+URL_STATUS: Dict[str, str] = {
+    "queued": "Queued",
+    "in_progress": "In Progress",
+    "completed": "Completed",
+    "errored": "Errored",
+}
 
 
 def get_user_from_supabase_auth(encoded_access_token: str) -> Union[str, None]:
@@ -67,6 +77,9 @@ def insert_new_record_in_crawled_urls_table(user_id: str, url: str) -> Union[Lis
         logger.error(f"Invalid URL: {url}")
         return None
 
+    # Set initial status of new records to "Queued"
+    url_status = URL_STATUS["queued"]
+
     try:
         logger.info("Create a Supabase client using the service role key")
         supabase_client: Client = create_client(
@@ -79,7 +92,8 @@ def insert_new_record_in_crawled_urls_table(user_id: str, url: str) -> Union[Lis
             supabase_client.table("crawled_urls")
             .insert({
                 "user_id": user_id, 
-                "url": url
+                "url": url,
+                "status": url_status,
             })
             .execute()
         ) 
