@@ -60,7 +60,7 @@ def crawl_url_and_index(request_body: CrawlUrlAndIndexBody) -> JSONResponse:
     new_crawled_urls_record_id = new_crawled_urls_record[0]["id"]
 
     # Offload the url crawling task to Celery
-    task = crawl_url_and_index_task.delay(request_body.url, new_crawled_urls_record_id)
+    task = crawl_url_and_index_task.delay(request_body.url, new_crawled_urls_record_id, user_id)
 
     # Return the Celery Task ID which can be
     # used to check on the Task's status.

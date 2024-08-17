@@ -67,7 +67,7 @@ def insert_new_record_in_crawled_urls_table(user_id: str, url: str) -> Union[Lis
     Inserts a new record with the URL and user_id into the crawled_urls table
     """
 
-    logger.info("In the check_if_user_is_logged_in utility function")
+    logger.info("In the insert_new_record_in_crawled_urls_table utility function")
 
     if user_id is None or type(user_id) is not str:
         logger.error(f"Invalid user_id: {user_id}")
@@ -111,3 +111,60 @@ def insert_new_record_in_crawled_urls_table(user_id: str, url: str) -> Union[Lis
     except Exception as error:
         logger.error(error)
         return None
+
+
+def update_status_of_record_in_crawled_urls_table(crawled_urls_id: int, user_id: str, status: str) -> None:
+    """
+    Updates a record in the crawled_urls table's status 
+    if, and only if, the id and user_id of the record in
+    the crawled_urls table "match" (i.e., this record
+    was originally created on behalf of the current user)
+    """
+
+    logger.info("In the update_status_of_record_in_crawled_urls_table utility function")
+
+    if crawled_urls_id is None or type(crawled_urls_id) is not int or crawled_urls_id < 1: 
+        logger.error(f"Invalid crawled_urls_id: {crawled_urls_id}")
+        return None
+
+    if user_id is None or type(user_id) is not str or len(user_id.trim()) == 0:
+        logger.error(f"Invalid user_id: {user_id}")
+        return None
+     
+    if status is None or type(status) is not str or len(status.trim()) == 0:
+        logger.error(f"Invalid status: {status}")
+        return None
+
+    try:
+        logger.info("Create a Supabase client using the service role key")
+        supabase_client: Client = create_client(
+            settings.SUPABASE_URL, 
+            settings.SUPABASE_SERVICE_ROLE_KEY
+        )
+
+        logger.info(f"Update status to {status} for crawled_urls row ID: {crawled_urls_id} for user_id: {user_id}")
+        response = (
+            supabase_client.table("crawled_urls")
+            .update({
+                "status": status,
+            })
+            .eq("id", crawled_urls_id)
+            .eq("user_id", user_id)
+            .execute()
+        ) 
+        
+        logger.info(f"Update crawled_urls record response: {response}")
+
+        # Return the updated record's data
+        return response.data
+    except AuthRetryableError as error:
+        logger.error("Supabase URL is incorrect or invalid.")
+        return None
+    except APIError as error:
+        logger.error("Supabase Service Role Key is incorrect.")
+        return None
+    except Exception as error:
+        logger.error(error)
+        return None
+
+     
